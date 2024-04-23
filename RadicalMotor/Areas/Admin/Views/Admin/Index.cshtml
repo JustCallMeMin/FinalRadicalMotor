@@ -1,0 +1,84 @@
+﻿@model IEnumerable<RadicalMotor.DTO.VehicleDTO>
+@{
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+ <!DOCTYPE html>
+
+ <html>
+ <head>
+     <meta name="viewport" content="width=device-width" />
+     <title>Index</title>
+ </head>
+ <body>
+
+    <a href="Admin/Create"><i class="btn btn-success btn-sm">Create</i></a>
+     <br />
+     <br />
+
+     <table class="table">
+         <tr>
+             <th>
+                 @Html.DisplayNameFor(model => model.ChassisNumber)
+             </th>
+             <th>
+                 @Html.DisplayNameFor(model => model.ImageUrls)
+             </th>
+             <th>
+                 @Html.DisplayNameFor(model => model.VehicleName)
+             </th>
+             <th>
+                 @Html.DisplayNameFor(model => model.VehicleType)
+             </th>
+             <th>
+                 @Html.DisplayNameFor(model => model.Version)
+             </th>
+             <th>
+                 @Html.DisplayNameFor(model => model.Price)
+             </th>
+         </tr>
+         @if(Model != null)
+        {
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.ChassisNumber)
+                    </td>
+                    <td>
+                        @foreach (var imageUrl in item.ImageUrls)
+                        {
+                            <img style="max-width: 10rem;" src="@imageUrl" alt="Image">
+                        }
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.VehicleName)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.VehicleType)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.Version)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.Price)
+                    </td>
+                    <td>
+                        <a style="text-decoration: none;" href="@Url.Action("Edit", "Students", new { id = item.ChassisNumber })">
+                            <i class="fa fa-edit btn btn-info btn-sm"></i>
+                        </a>
+                        <a style="text-decoration: none;" href="Admin/Detail/@item.ChassisNumber">
+                            <i class="btn btn-warning btn-sm">Details</i>
+                        </a>
+                        <a href="@Url.Action("Delete", "Students", new { id = item.ChassisNumber })">
+                            <i class="btn btn-danger btn-sm">Delete</i>
+                        </a>
+                    </td>
+                </tr>
+            }
+        }
+        
+
+     </table>
+ </body>
+ </html>
