@@ -1,63 +1,43 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Newtonsoft.Json;
 using RadicalMotor.DTO;
 using RadicalMotor.Models;
+using System.Security.Claims;
 
 
 namespace RadicalMotor.Areas.Admin.Controllers
 {
-    public class AdminController : Controller
-    {
-        private readonly HttpClient _httpClient;
-        private readonly ApplicationDbContext _dbContext;
-        public AdminController(ApplicationDbContext dbContext)
-        {
-            _httpClient = new HttpClient();
-            _httpClient.BaseAddress = new Uri("https://localhost:44304/");
-            _dbContext = dbContext;
-        }
-        private bool IsUserAdmin()
-        {
-            var userType = GetUserType();
+	//[Authorize(Policy = "IsAdmin")]
+	public class AdminController : Controller
+	{
+		private readonly HttpClient _httpClient;
+		private readonly ApplicationDbContext _dbContext;
 
-            return userType == "Admin";
-        }
+		public AdminController(ApplicationDbContext dbContext, IHttpClientFactory httpClientFactory)
+		{
+			_httpClient = httpClientFactory.CreateClient();
+			_httpClient.BaseAddress = new Uri("https://localhost:44304/");
+			_dbContext = dbContext;
+		}
+        public async Task<IActionResult> Index()
+		{
+			HttpResponseMessage response = await _httpClient.GetAsync("api/Vehicles");
+			if (response.IsSuccessStatusCode)
+			{
+				var responseDataString = await response.Content.ReadAsStringAsync();
+				var vehicles = JsonConvert.DeserializeObject<List<VehicleDTO>>(responseDataString);
+				return View(vehicles);
+			}
+			else
+			{
+				ViewBag.ErrorMessage = "Failed to retrieve data from the API";
+				return View("Error");
+			}
+		}
 
-        private string GetUserType()
-        {
-            var userType = HttpContext.Request.Cookies["userType"];
-
-            return userType;
-        }
-        [Area("Admin")]
-        public async Task<ActionResult> Index()
-        {
-            if (IsUserAdmin())
-            {
-                HttpResponseMessage response = await _httpClient.GetAsync("api/Vehicles");
-
-                if (response.IsSuccessStatusCode)
-                {
-                    string responseDataString = await response.Content.ReadAsStringAsync();
-
-                    List<VehicleDTO> responseData = JsonConvert.DeserializeObject<List<VehicleDTO>>(responseDataString);
-                    var vehicle = responseData.ToList();
-                    return View(vehicle);
-                }
-                else
-                {
-                    ViewBag.ErrorMessage = "Failed to retrieve data from the API";
-                    return View();
-                }
-            }
-            else
-            {
-                return RedirectToAction("Index", "Account");
-            }
-        }
-
-        public async Task<ActionResult> Create(VehicleDTO model)
+		public async Task<ActionResult> Create(VehicleDTO model)
         {
             HttpResponseMessage response = await _httpClient.PostAsJsonAsync("api/Vehicles", model);
 

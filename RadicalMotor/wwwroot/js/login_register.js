@@ -1,66 +1,57 @@
 ﻿(function ($) {
     "use strict";
-    // Function to set a cookie
-    function setCookie(name, value, days) {
-        var expires = "";
-        if (days) {
-            var date = new Date();
-            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-            expires = ";expires=" + date.toUTCString();
-        }
-        document.cookie = name + "=" + (value || "") + expires + ";path=/";
+    
+    function ajaxSetup() {
+        $.ajaxSetup({
+            beforeSend: function (xhr) {
+                var token = localStorage.getItem('jwtToken') || sessionStorage.getItem('jwtToken');
+                if (token) {
+                    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+                }
+            }
+        });
     }
 
-
-    // Function to get a cookie by name
-    function getCookie(name) {
-        var nameEQ = name + "=";
-        var ca = document.cookie.split(';');
-        for (var i = 0; i < ca.length; i++) {
-            var c = ca[i];
-            while (c.charAt(0) === ' ') c = c.substring(1);
-            if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
-        }
-        return null;
+    function checkLoginStatus() {
+        var token = localStorage.getItem('jwtToken') || sessionStorage.getItem('jwtToken');
+        return token != null;
     }
 
-    // Function to delete a cookie by name
-    function deleteCookie(name) {
-        document.cookie = name + '=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-    }
-
-    // Function to handle successful login with cookies
     function handleLoginSuccess(response) {
-        var rememberMe = $('#remember').is(':checked');
-        var expiresIn = rememberMe ? 30 : 1;
-
-        // Check if response contains accountId
-        if (response && response.accountId) {
-            setCookie('isLoggedIn', 'true', expiresIn);
-            setCookie('accountId', response.accountId, expiresIn);
-            checkUserPermissions(response.accountId);
+        if (response && response.token) {
+            var rememberMe = $('#remember').is(':checked');
+            if (rememberMe) {
+                localStorage.setItem('jwtToken', response.token);
+            } else {
+                sessionStorage.setItem('jwtToken', response.token);
+            }
+            checkUserPermissions();
             $(".modal_close").click();
             toggleSignInOutButtons();
-
         } else {
-            console.error('Login failed: No accountId found in response');
-            // Handle login failure here, e.g., display error message
+            console.error('Login failed: No token found in response');
         }
     }
 
+
     // Handle logout
+    //function handleLogout() {
+    //    deleteCookie('isLoggedIn');
+    //    deleteCookie('accountId');
+    //    deleteCookie('userType');
+    //    toggleSignInOutButtons();
+    //}
     function handleLogout() {
-        deleteCookie('isLoggedIn');
-        deleteCookie('accountId');
-        deleteCookie('userType');
+        localStorage.removeItem('jwtToken');
+        sessionStorage.removeItem('jwtToken');
         toggleSignInOutButtons();
     }
 
     // Toggle visibility of the Sign In and Logout buttons based on authentication status
-    function checkLoginStatus() {
-        var isLoggedIn = getCookie('isLoggedIn') === 'true';
-        return isLoggedIn;
-    }
+    //function checkLoginStatus() {
+    //    var isLoggedIn = getCookie('isLoggedIn') === 'true';
+    //    return isLoggedIn;
+    //}
     // Toggle visibility of the Sign In and Logout buttons based on authentication status
     function toggleSignInOutButtons() {
         var isLoggedIn = checkLoginStatus();
@@ -144,7 +135,7 @@
             };
 
             $.ajax({
-                url: 'https://localhost:44304/api/LoginApi/login',
+                url: 'https://localhost:44304/api/LoginApi',
                 type: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(formData),
@@ -166,7 +157,7 @@
 
             $.ajax({
                 type: "POST",
-                url: "https://localhost:44304/api/Accounts",
+                url: "https://localhost:44304/api/AccountsApi",
                 contentType: "application/json",
                 data: JSON.stringify(formData),
                 success: function (response) {
@@ -194,43 +185,37 @@
 
     // Initialize everything on document ready
     $(document).ready(function () {
+        ajaxSetup();
         initializeUIComponents();
         setupEventHandlers();
         toggleSignInOutButtons();
-        var accountId = getCookie('accountId');
     });
 
-    function checkUserPermissions(accountId) {
-        if (!accountId) {
-            console.error('No accountId provided');
+    function checkUserPermissions() {
+        var token = localStorage.getItem('jwtToken') || sessionStorage.getItem('jwtToken');
+        if (!token) {
+            console.error('No token found');
             return;
         }
 
-        $.ajax({
-            url: `https://localhost:44304/api/Accounts/${accountId}/type`,
-            type: 'GET',
-            success: function (response) {
-                if (!response || typeof response !== 'object' || !('typeName' in response)) {
-                    console.error('Invalid response or TypeName missing');
-                    return;
-                }
+        var decoded = jwt_decode(token);
+        console.log('Decoded token:', decoded);
 
-                // Truy cập và kiểm tra TypeName
-                var rememberMe = $('#remember').is(':checked');
-                var expiresIn = rememberMe ? 30 : 1;
-                var typeName = response.typeName;
-                setCookie('userType', typeName, expiresIn);
-                if (typeName === 'Admin') {
-                    window.location.href = '/admin'
-                } else if (typeName === 'Member') {
-                } else {
-                    console.error('Unknown account type:', typeName);
-                }
-            },
-            error: function (xhr) {
-                console.error('Error fetching account type:', xhr.responseText);
+        if (decoded && decoded.typeId) {
+            var typeId = decoded.typeId;
+            console.log('User type:', typeId);
+
+            if (typeId === '1') {
+                console.log('Redirecting to /admin');
+                window.location.href = '/admin';
+            } else if (typeId !== '2') {
+                console.error('Unknown account type:', typeId);
             }
-        });
+        } else {
+            console.error('Invalid token or typeId missing');
+        }
     }
+
+
 
 })(jQuery);

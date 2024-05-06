@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using RadicalMotor.Models;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,22 +12,39 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 	options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddHttpClient();
-
+builder.Services.AddCors(options =>
+{
+	options.AddPolicy("AllowSpecificOrigin",
+		policy => policy.WithOrigins("https://localhost:44301")
+						.AllowAnyMethod()
+						.AllowAnyHeader()
+						.AllowCredentials());
+});
 // Configure authentication and authorization.
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-	.AddCookie(options =>
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+.AddJwtBearer(options =>
+{
+	options.TokenValidationParameters = new TokenValidationParameters
 	{
-		options.Cookie.HttpOnly = true;
-		options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-		options.Cookie.SameSite = SameSiteMode.None;
-		options.Cookie.Path = "/";
-		options.ExpireTimeSpan = TimeSpan.FromDays(30);
-		options.SlidingExpiration = true;
+		ValidateIssuerSigningKey = true,
+		IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])),
+		ValidateIssuer = true,
+		ValidateAudience = true,
+		ValidIssuer = builder.Configuration["Jwt:Issuer"],
+		ValidAudience = builder.Configuration["Jwt:Audience"],
+		ValidateLifetime = true,
+		ClockSkew = TimeSpan.Zero,
+		RoleClaimType = "typeId"
+	};
+});
+builder.Services.AddAuthorization(options =>
+{
+	options.AddPolicy("IsAdmin", policy =>
+	{
+		policy.AuthenticationSchemes.Add(JwtBearerDefaults.AuthenticationScheme);
+		policy.RequireClaim("typeId", "1");
 	});
-
-
-builder.Services.AddAuthorization();
-
+});
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
@@ -35,7 +55,7 @@ if (!app.Environment.IsDevelopment())
 	app.UseExceptionHandler("/Home/Error");
 	app.UseHsts();
 }
-
+app.UseCors("AllowSpecificOrigin");
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
